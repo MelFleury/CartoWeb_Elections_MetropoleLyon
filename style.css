@@ -1,0 +1,14 @@
+#map {
+    height: 500px;
+    width : 100%;
+    border-radius: 5px;
+    border: 3px solid #343E69;
+  }
+
+h2{
+    color: black;
+    text-align: center;
+    font-family: Arial;
+    border : 7px double #000;
+    background-color: white;
+}

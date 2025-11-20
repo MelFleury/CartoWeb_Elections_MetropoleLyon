@@ -19,6 +19,17 @@ const mainLayer = L.tileLayer(
 
 mainLayer.addTo(mymap);
 
+// CRÉATION LÉGENDE
+const legend = L.control({ position: "bottomright" });
+
+legend.onAdd = function () {
+    const div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = "<b>Légende</b><br>";
+    return div;
+  };
+
+legend.addTo(mymap);
+
 // Ordre d'affichage des couches
 mymap.createPane("paneChoro");
 mymap.getPane("paneChoro").style.zIndex = 200;
@@ -132,7 +143,7 @@ function getNuancesFromData(data){
   return [...new Set(data.map(d => d["Nuance candidat"]))];
 }
   if (election === "europeennes24"){
-  return [...new Set(data.map(d => d["Nuance liste"]))];
+  return [...new Set(data.map(d => d["Parti politique"]))];
 }}
 
 // source : https://www.archives-resultats-elections.interieur.gouv.fr/resultats/senatoriales-2020/nuances.php
@@ -151,22 +162,14 @@ const NomCompletNuances = {
   "DVC":  "Divers Centre",
   "DVD":  "Divers Droite",
 
-  'LCOM': "Liste Parti communiste français", 
-  'LDIV': "Liste Divers", 
-  'LDVD': "Liste divers droite",
-  'LDVG': "Liste divers gauche",
-  'LECO': "Liste Écologiste",
-  'LENS': "Liste Ensemble",
-  'LEXD': "Liste d'extrême droite",
-  'LEXG': "Liste d'extrême gauche",
-  'LFI' : "Liste La France insoumise",
-  'LLR': "Liste Les Républicains",
-  'LREC': "Liste Reconquête", 
-  'LRN': "Liste Rassemblement National",
-  'LUG': "Liste d'union de la gauche",
-  'LVEC': "Liste Europe écologie les Verts"
-}
-    
+  'PCF': "Parti communiste français", 
+  "Extrême-droite": "Extrême-droite",
+  'Écologiste': "Écologiste",
+  'LFI' : "La France insoumise",
+  "EPR Modem": "EPR Modem",
+  "PP PS": "Place Publique/Parti Socialiste"
+};
+
 let electionRadios = document.querySelectorAll("input[name='election']");
 
 electionRadios.forEach(r => {
@@ -185,8 +188,11 @@ function updateNuancesMenu() {
 
   if (!data) return;
 
-  const nuances = getNuancesFromData(data);
-
+  //ordre alphabétique des partis politiques
+  const nuances = getNuancesFromData(data).sort((a, b) =>
+    (NomCompletNuances[a] || a).localeCompare(NomCompletNuances[b] || b)
+  );
+  
   // On vide le menu nuance
   selectNuance.innerHTML = "";
   
@@ -200,7 +206,7 @@ function updateNuancesMenu() {
   nuances.forEach(n => {
     const opt = document.createElement("option");
     opt.value = n;
-    opt.textContent = NomCompletNuances[n];
+    opt.textContent = NomCompletNuances[n] || n;
     selectNuance.appendChild(opt);
   });
 
@@ -228,7 +234,7 @@ function updateChoropleth(nuance, data) {
 
   let label = null;
   if (election === "legislatives24") label = "Nuance candidat";
-  if (election === "europeennes24") label = "Nuance liste";
+  if (election === "europeennes24") label = "Parti politique";
 
   if (!burvotesLayer || !data) return;
 
@@ -236,66 +242,98 @@ function updateChoropleth(nuance, data) {
 
   if (nuance === "Abstention") {
     data.forEach(d => {
-      let pct = d["% Abstentions"]
-                  .replace(",", ".")
-                  .replace("%", "");
+      let pct = ("" + d["% Voix/exprimés"])
+      .replace(",", ".")
+      .replace("%", "");
       values[d["Code BV"]] = parseFloat(pct);
     });
   } else {
     data
       .filter(d => d[label] === nuance)
       .forEach(d => {
-        let pct = d["% Voix/exprimés"]
-                    .replace(",", ".")
-                    .replace("%", "");
+        let pct = ("" + d["% Voix/exprimés"])
+        .replace(",", ".")
+        .replace("%", "");
         values[d["Code BV"]] = parseFloat(pct);
       });
   }
 
   // Palettes par parti politique
-
   const palettes = {
-    "EXG": ["#990000", "#d7301f", "#ef6548", "#fc9272"],
-    "UXD": ["#08306b", "#2171b5", "#4292c6", "#6baed6"],
-    "ECO": ["#00441b", "#006d2c", "#238b45", "#41ae76"],
-    "DIV": ["#93441A", "#B67332", "#DAAB3A", "#e5e7e6"],
-    "UDI": ["#8A0D1E", "#DE2E4B", "#F36D8F", "#F59FBD"],
-    "REC": ["#08306b", "#2171b5", "#4292c6", "#6baed6"],
-    "ENS":  ["#E87659", "#F5A86B", "#FACA15", "#fdde6fff"],
-    "RN":   ["#08306b", "#2171b5", "#4292c6", "#6baed6"],
-    "UG":   ["#54278f", "#756bb1", "#9e9ac8", "#cbc9e2"],
-    "LR":   ["#08589e", "#2b8cbe", "#4eb3d3", "#7bccc4"], 
-    "DVG":  ["#990000", "#d7301f", "#ef6548", "#fc9272"], 
-    "DVC":  ["#F0604D", "#F38071", "#F79F95", "#FBBFB8"],
-    "DVD":  ["#08306b", "#2171b5", "#4292c6", "#6baed6"],
-    "Abstention": ["#2E3244", "#5D6371", "#9297a3ff", "#C5C6C6"],
+    "EXG": ["#7F0000", "#990000", "#B2182B", "#D7301F", "#EF6548", "#FC8D59", "#FDBB84", "#FDD3B1", "#FEE8D8"],
+    "UXD": ["#041F3D", "#08306B", "#0F4C8A", "#2171B5", "#3D8DC8", "#56A1D3", "#74B3DE", "#9CCBE8", "#C4E0F1"],
+    "ECO": ["#002B13", "#00441B", "#005F24", "#006D2C", "#138B46", "#238B45", "#41AE76", "#6CC199", "#97D4BA"],
+    "DIV": ["#6F3515", "#93441A", "#A85A22", "#B67332", "#C4893A", "#DAAB3A", "#E5C76B", "#EEE2A4", "#F6EFD0"],
+    "UDI": ["#6B0917", "#8A0D1E", "#B81F32", "#DE2E4B", "#F36D8F", "#F59FBD", "#F7C8D7", "#FADBE6", "#FCECF3"],
+    "REC": ["#041F3D", "#08306B", "#0F4C8A", "#2171B5", "#3D8DC8", "#56A1D3", "#74B3DE", "#9CCBE8", "#C4E0F1"],
+    "ENS": ["#C45A45", "#E87659", "#EE8D64", "#F5A86B", "#F8BD72", "#FACA15", "#FDDC57", "#FDEB8A", "#FEF7C5"],
+    "RN":  ["#041F3D", "#08306B", "#0F4C8A", "#2171B5", "#3D8DC8", "#56A1D3", "#74B3DE", "#9CCBE8", "#C4E0F1"],
+    "UG":  ["#3D1E6B", "#54278F", "#6542A1", "#756BB1", "#897EC0", "#9E9AC8", "#BDB7DA", "#D7D1E6", "#ECE9F3"],
+    "LR":  ["#064479", "#08589E", "#1A6EAD", "#2B8CBE", "#3FA6CA", "#4EB3D3", "#6CC7D8", "#93D9DD", "#BBE9E3"], 
+    "DVG": ["#7F0000", "#990000", "#B2182B", "#D7301F", "#EF6548", "#FC8D59", "#FDBB84", "#FDD3B1", "#FEE8D8"], 
+    "DVC": ["#C05A4A", "#F0604D", "#F07060", "#F38071", "#F59A84", "#F79F95", "#FBBFB8", "#FCD6CF", "#FEEAEA"],
+    "DVD": ["#041F3D", "#08306B", "#0F4C8A", "#2171B5", "#3D8DC8", "#56A1D3", "#74B3DE", "#9CCBE8", "#C4E0F1"],
+    "Abstention": ["#1F2231", "#2E3244", "#44485A", "#5D6371", "#767C88", "#9297A3", "#B3B5BB", "#D1D2D2", "#E8E9E9"],
 
-    'LCOM': ["#990000", "#d7301f", "#ef6548", "#fc9272"],
-    'LDIV': ["#93441A", "#B67332", "#DAAB3A", "#e5e7e6"],
-    'LDVD': ["#08306b", "#2171b5", "#4292c6", "#6baed6"],
-    'LDVG': ["#990000", "#d7301f", "#ef6548", "#fc9272"],
-    'LECO': ["#00441b", "#006d2c", "#238b45", "#41ae76"],
-    'LENS': ["#E87659", "#F5A86B", "#FACA15", "#fdde6fff"],
-    'LEXD': ["#08306b", "#2171b5", "#4292c6", "#6baed6"],
-    'LEXG': ["#990000", "#d7301f", "#ef6548", "#fc9272"],
-    'LFI' : ["#8A0D1E", "#DE2E4B", "#F36D8F", "#F59FBD"],
-    'LLR': ["#08589e", "#2b8cbe", "#4eb3d3", "#7bccc4"], 
-    'LREC': ["#08306b", "#2171b5", "#4292c6", "#6baed6"],
-    'LRN': ["#08306b", "#2171b5", "#4292c6", "#6baed6"],
-    'LUG': ["#54278f", "#756bb1", "#9e9ac8", "#cbc9e2"],
-    'LVEC': ["#00441b", "#006d2c", "#238b45", "#41ae76"]
+    "PCF": ["#7F0000", "#990000", "#B2182B", "#D7301F", "#EF6548", "#FC8D59", "#FDBB84", "#FDD3B1", "#FEE8D8"],
+    "Écologiste": ["#002B13", "#00441B", "#005F24", "#006D2C", "#138B46", "#238B45", "#41AE76", "#6CC199", "#97D4BA"],
+    "EPR Modem": ["#C45A45", "#E87659", "#EE8D64", "#F5A86B", "#F8BD72", "#FACA15", "#FDDC57", "#FDEB8A", "#FEF7C5"],
+    "PP PS":  ["#6B0917", "#8A0D1E", "#B81F32", "#DE2E4B", "#F36D8F", "#F59FBD", "#F7C8D7", "#FADBE6", "#FCECF3"],
+    "LR":  ["#064479", "#08589E", "#1A6EAD", "#2B8CBE", "#3FA6CA", "#4EB3D3", "#6CC7D8", "#93D9DD", "#BBE9E3"], 
+    "Extrême-droite":  ["#041F3D", "#08306B", "#0F4C8A", "#2171B5", "#3D8DC8", "#56A1D3", "#74B3DE", "#9CCBE8", "#C4E0F1"],
+    "LFI":  ["#3D1E6B", "#54278F", "#6542A1", "#756BB1", "#897EC0", "#9E9AC8", "#BDB7DA", "#D7D1E6", "#ECE9F3"]
   };
-
+  
   // échelle couleur
   function getColorForNuance(nuance, value) {
     const pal = palettes[nuance] || palettes["Abstention"];
+
+    if (value > 70) return pal[0];
+    else if (value > 50) return pal[1];
+    else if (value > 40) return pal[2];
+    else if (value > 30) return pal[3];
+    else if (value > 20) return pal[4];
+    else if (value > 15) return pal[5];
+    else if (value > 10) return pal[6];
+    else if (value > 5) return pal[7];
+    else return pal[8];
+  };
+
+  function updateLegend(nuance) {
+    if (!nuance) {
+      legend.getContainer().innerHTML = "<b>Aucune nuance sélectionnée</b>";
+      return;
+    }
   
-    // On suppose value ∈ [0, 50]
-    if (value > 50) return pal[0];
-    if (value > 30) return pal[1];
-    if (value > 15) return pal[2];
-    return pal[3];
-  }
+    const pal = palettes[nuance] || palettes["Abstention"];
+  
+    const grades = [
+      "> 70 %",
+      "50 – 70 %",
+      "40 – 50 %",
+      "30 – 40 %",
+      "20 – 30 %",
+      "15 – 20 %",
+      "10 – 15 %",
+      "5 – 10 %",
+      "0 – 5 %"
+    ];
+  
+    let html = "<b>" + (NomCompletNuances[nuance] || nuance) + "</b><br>";
+  
+    for (let i = 0; i < pal.length; i++) {
+      html += `
+        <div class="legend-line">
+          <i style="background:${pal[i]}"></i>
+          <span>${grades[i]}</span>
+        </div>
+      `;
+    }
+  
+    legend.getContainer().innerHTML = html;
+  };
+
+  updateLegend(nuance);
 
   // mise à jour du style
   choroLayer.eachLayer(layer => {
@@ -318,11 +356,13 @@ function updateChoropleth(nuance, data) {
     layer.bindPopup(
       `<b>Commune :</b> ${commune}<br>
       <b>Bureau de vote :</b> ${codeBV}<br>
-      ${nuance === "Abstention" ? "% Abstentions : " : "% voix/exprimés : "}
+      <b> ${nuance === "Abstention" ? "% Abstentions : " : "% voix/exprimés : "}</b>
       <b>${val ? val + "%" : "N/A"}</b>`
     );
   });
 
   choroplethActive = true;
+
+  
 
 }

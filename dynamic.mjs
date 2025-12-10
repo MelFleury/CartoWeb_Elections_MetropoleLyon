@@ -54,7 +54,7 @@ function styleBurvotes() {
 let burvotesLayer;
 let choroLayer = null;
 
-fetch('./Data source/geom/metropole-de-lyon_com_donnees_communales.secteurbureauvote.json')
+fetch('./Data finale/geom/lyon_intramuros_com_donnees_communales.secteurbureauvote.geojson')
 .then(response => response.json())
 .then(data => {
    burvotesLayer = L.geoJSON(data, {
@@ -89,7 +89,7 @@ function styleCommunes() {
 
 let communesLayer;
 
-fetch('./Data finale/geom/metropole-de-lyon_adr_voie_lieu.adrcommunes_2024.json')
+fetch('./Data finale/geom/lyon_intramuros_adr_voie_lieu.adrcommunes_2024.geojson')
 .then(response => response.json())
 .then(data => {
 
@@ -111,10 +111,10 @@ let choroplethActive = false;
 
 // Chargement des données
 Promise.all([
-  fetch("./Data finale/legis2024_premiertour-resultats-definitifs-burvotes-metrop-lyon.json")
+  fetch("./Data finale/legis2024_premiertour-resultats-definitifs-burvotes-lyon.json")
       .then(r => r.json()),
 
-  fetch("./Data finale/europ2024_premiertour-resultats-definitifs-burvotes-metrop-lyon.json")
+  fetch("./Data finale/europ2024_premiertour-resultats-definitifs-burvotes-lyon.json")
       .then(r => r.json())
 ]).then(([legisJson, europJson]) => {
 
@@ -242,19 +242,24 @@ function updateChoropleth(nuance, data) {
 
   if (nuance === "Abstention") {
     data.forEach(d => {
-      let pct = ("" + d["% Voix/exprimés"])
+      let pct = ("" + d["% Abstentions"])
       .replace(",", ".")
       .replace("%", "");
-      values[d["Code BV"]] = parseFloat(pct);
+      // values[d["Code BV"]] = parseFloat(pct);
+      const key = d["Code commune"] + "_" + d["Code BV"];
+      values[key] = parseFloat(pct);
+
     });
   } else {
     data
       .filter(d => d[label] === nuance)
       .forEach(d => {
-        let pct = ("" + d["% Voix/exprimés"])
+        let pct = ("" + d["% Voix\/exprim\u00e9s"])
         .replace(",", ".")
         .replace("%", "");
-        values[d["Code BV"]] = parseFloat(pct);
+        // values[d["Code BV"]] = parseFloat(pct);
+        const key = d["Code commune"] + "_" + d["Code BV"];
+        values[key] = parseFloat(pct);
       });
   }
 
@@ -337,9 +342,13 @@ function updateChoropleth(nuance, data) {
 
   // mise à jour du style
   choroLayer.eachLayer(layer => {
-    const codeBV = layer.feature.properties.numero;
     const commune = layer.feature.properties.commune;
-    const val = values[codeBV];
+    const insee = layer.feature.properties.insee;
+    const numero = layer.feature.properties.numero;
+    
+    const key = insee + "_" + numero;
+    const val = values[key];
+
 
     // palette
     let fill = (nuance === "Abstention")
@@ -348,21 +357,19 @@ function updateChoropleth(nuance, data) {
 
     layer.setStyle({
       fillColor: fill,
-      fillOpacity: val ? 0.6 : 0,
+      fillOpacity: (val !== undefined && val !== null) ? 0.6 : 0,
       color: "#333",
       weight: 1
     });
 
     layer.bindPopup(
       `<b>Commune :</b> ${commune}<br>
-      <b>Bureau de vote :</b> ${codeBV}<br>
-      <b> ${nuance === "Abstention" ? "% Abstentions : " : "% voix/exprimés : "}</b>
-      <b>${val ? val + "%" : "N/A"}</b>`
+      <b>Bureau de vote :</b> ${numero}<br>
+      <b> ${nuance === "Abstention" ? "Abstentions : " : "Voix/exprimés : "}</b>
+      <b>${val ? val + "%" : "No data"}</b>`
     );
   });
 
   choroplethActive = true;
-
-  
 
 }
